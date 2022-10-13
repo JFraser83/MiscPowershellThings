@@ -31,6 +31,10 @@ $Users = Import-CSV $importPath
 
 Connect-MicrosoftTeams
 
+<#
+This script will assign a direct routing phone #, and voice routing policy and emergency calling policy 
+
+#>
 foreach ($User in $Users) {
 
     $UPN = $User.UserPrincipalName 
@@ -39,6 +43,8 @@ foreach ($User in $Users) {
     try
     {
         Set-CsPhoneNumberAssignment -Identity $UPN -PhoneNumber $PhoneNumber -PhoneNumberType $Type  -ErrorAction STOP
+        Grant-CsOnlineVoiceRoutingPolicy -Identity $UPN -PolicyName "REPLACE" -ErrorAction STOP 
+        Grant-CsTeamsEmergencyCallRoutingPolicy -Identity $UPN -PolicyName "REPLACE" -ErrorAction STOP 
         $Result = "The user $UPN has been assigned $PhoneNumber"
         Write-Host $Result  -ForegroundColor Cyan 
 
