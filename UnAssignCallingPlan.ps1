@@ -43,7 +43,7 @@ foreach ($User in $Users) {
     try
     {
         #Set-CsPhoneNumberAssignment -Identity $UPN -PhoneNumber $PhoneNumber -PhoneNumberType $Type  -ErrorAction STOP
-        Remove-CsPhoneNumberAssignment -Identity $UPN -PhoneNumber $PhoneNumber -PhoneNumberType CallingPlan
+        Remove-CsPhoneNumberAssignment -Identity $UPN -PhoneNumber $PhoneNumber -PhoneNumberType CallingPlan -ErrorAction STOP 
         $Result = "$PhoneNumber has been unassigned from user $UPN"
         Write-Host $Result  -ForegroundColor Cyan 
 
