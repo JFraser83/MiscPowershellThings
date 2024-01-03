@@ -104,11 +104,14 @@ if (-not $existingGroup) {
 }
 #Create a Team for the call queue  
 # Create a Team for the call queue membership
-try {
-    $teamID = New-Team -DisplayName $CallQueueMembership -Visibility "private"
-    Write-Host "Team named $CallQueueMembership is created successfully" -ForegroundColor Green
-} catch {
-    Write-Host "An error occurred: $_"
+$existingTeam = Get-Team -DisplayName $CallQueueMembership
+if (-not $existingTeam) {
+    try {
+        $teamID = New-Team -DisplayName $CallQueueMembership -Visibility "private"
+        Write-Host "Team named $CallQueueMembership is created successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "An error occurred: $_"
+    }
 }
 try {
     $channelID = Get-TeamChannel -GroupID $teamID.GroupID | Where-Object {$_.DisplayName -eq "General"} | Select-Object -ExpandProperty Id
@@ -151,7 +154,7 @@ catch {
 try {
     $teamSupportID = $teamID.GroupID
 
-    New-CsCallQueue -Name $CallQueueName -AgentAlertTime 15 -AllowOptOut $false -ChannelID $channelID -DistributionLists $teamSupportID -OverflowAction SharedVoicemail -EnableOverflowSharedVoicemailTranscription $true -TimeoutAction SharedVoicemail -TimeoutActionTarget $teamSupportID -TimeoutThreshold 2700 -TimeoutSharedVoicemailTextToSpeechPrompt "We're sorry to have kept you waiting and are now transferring your call to voicemail." -EnableTimeoutSharedVoicemailTranscription $true -RoutingMethod LongestIdle -ConferenceMode $true -LanguageID "en-US" -ErrorAction Stop
+    New-CsCallQueue -Name $CallQueueName -AgentAlertTime 15 -AllowOptOut $false -ChannelID $channelID -DistributionLists $teamSupportID -OverflowAction SharedVoicemail -OverFlowActionTarget $teamSupportID -EnableOverflowSharedVoicemailTranscription $true -TimeoutAction SharedVoicemail -TimeoutActionTarget $teamSupportID -TimeoutThreshold 2700 -TimeoutSharedVoicemailTextToSpeechPrompt "We're sorry to have kept you waiting and are now transferring your call to voicemail." -EnableTimeoutSharedVoicemailTranscription $true -RoutingMethod LongestIdle -ConferenceMode $true -LanguageID "en-US" -ErrorAction Stop
     Write-Host "Call Queue $CallQueueName created successfully" -ForegroundColor Green 
 }
 catch {
