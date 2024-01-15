@@ -25,15 +25,7 @@ if (-not (Get-Module -ListAvailable -Name "ExchangeOnlineManagement")) {
 Connect-MicrosoftTeams 
 Connect-MgGraph -Scopes "User.ReadWrite.All","Group.ReadWrite.All","Directory.ReadWrite.All","Organization.Read.All" -NoWelcome
 Connect-ExchangeOnline 
-#1. Create Group - This is the dial scope for the AA Add members 
 
-#2. Create the resource account and assign the license 
-
-#3. Create the AA 
-
-#4. Create the CQ 
-
-#5 After hours call flow 
 
 # Prompt the user for the office location
 do {
@@ -115,7 +107,7 @@ if (-not $existingTeam) {
 }
 try {
     $channelID = Get-TeamChannel -GroupID $teamID.GroupID | Where-Object {$_.DisplayName -eq "General"} | Select-Object -ExpandProperty Id
-    Write-Host "ChannelID is $channelID"
+    #Write-Host "ChannelID is $channelID"
 }
 catch {
     Write-Host "An error occurred: $_"
@@ -149,18 +141,57 @@ catch {
         $PhoneSysVirtualSku = Get-MgSubscribedSku -All | Where-Object { $_.SkuPartNumber -eq 'PHONESYSTEM_VIRTUALUSER' }
         Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $PhoneSysVirtualSku.SkuId} -Removelicenses @()
     
+#Create Call Queue Resource Account
+
+
+
+
 
      #Create Call Queue
 try {
     $teamSupportID = $teamID.GroupID
+    $teamOwnerUserID = (Get-TeamChannelUser -GroupId $teamSupportID -DisplayName "General" -Role Owner).UserId
 
-    New-CsCallQueue -Name $CallQueueName -AgentAlertTime 15 -AllowOptOut $false -ChannelID $channelID -DistributionLists $teamSupportID -OverflowAction SharedVoicemail -OverFlowActionTarget $teamSupportID -EnableOverflowSharedVoicemailTranscription $true -TimeoutAction SharedVoicemail -TimeoutActionTarget $teamSupportID -TimeoutThreshold 2700 -TimeoutSharedVoicemailTextToSpeechPrompt "We're sorry to have kept you waiting and are now transferring your call to voicemail." -EnableTimeoutSharedVoicemailTranscription $true -RoutingMethod LongestIdle -ConferenceMode $true -LanguageID "en-US" -ErrorAction Stop
+    New-CsCallQueue -Name $CallQueueName -AgentAlertTime 15 -AllowOptOut $false -ChannelID $channelID -ChannelUserObjectId $teamOwnerUserID -DistributionLists $teamSupportID -TimeoutAction SharedVoicemail -TimeoutActionTarget $teamSupportID -TimeoutThreshold 2700 -TimeoutSharedVoicemailTextToSpeechPrompt "We're sorry to have kept you waiting and are now transferring your call to voicemail." -EnableTimeoutSharedVoicemailTranscription $true -RoutingMethod LongestIdle -ConferenceMode $true -LanguageID "en-US" -UseDefaultMusicOnHold $true -ErrorAction Stop
     Write-Host "Call Queue $CallQueueName created successfully" -ForegroundColor Green 
 }
 catch {
     Write-Host "An error occurred: $_"
 }
 
+
+# Create AutoAttendant Resource Account 
+$upn = $PhoneNumberString + "CQ@" + $upnSuffix 
+#Check if UPN Already Exists if not create it 
+try {
+        $user = Get-CsOnlineUser -Identity $upn -ErrorAction Stop
+    
+    }
+catch {
+        New-CsOnlineApplicationInstance -UserPrincipalName $upn -DisplayName $displayName -ApplicationID "11cd3e2e-fccb-42ad-ad00-878b93575e07"    
+    }       
+$upnCreated = $false
+
+# Loop until the user $upn is created
+    do {
+        try {
+            $user = Get-CsOnlineUser -Identity $upn -ErrorAction Stop
+            $upnCreated = $true
+            }
+        catch {
+            Write-Host "User $upn is not created yet. Retrying..."
+            Start-Sleep -Seconds 30
+            }       
+    } until ($upnCreated)
+    Update-MgUser -UserId $upn -UsageLocation "CA"
+    $PhoneSysVirtualSku = Get-MgSubscribedSku -All | Where-Object { $_.SkuPartNumber -eq 'PHONESYSTEM_VIRTUALUSER' }
+    Set-MgUserLicense -UserId $upn -AddLicenses @{SkuId = $PhoneSysVirtualSku.SkuId} -Removelicenses @()
+
+    #Associate Resource Account to Call Queue
+    $applicationInstanceID = (Get-CsOnlineUser -Identity $upn).Identity
+    $callQueueID = (Get-CsCallQueue -NameFilter $CallQueueName).Identity
+    New-CsOnlineApplicationInstanceAssociation -Identities @($applicationInstanceID) -ConfigurationID $callQueueID -ConfigurationType CallQueue
+ 
 
 #Create AutoAttendant 
 
@@ -171,7 +202,7 @@ catch {
 #$openallOptions = New-CsAutoAttendantMenuOption -Action TransfercallToTarget -DtfmResponse Automatic -CallTarget (Get-CsOnlineUser $CallQueueName).Identity
 
 #New-CsAutoAttendantMenuOption -Action TransferCallToTarget -DtmfResponse Tone2 -CallTarget $openHoursMenuOption2Entity
-#$salesGroupID = Find-CsGroup -SearchQuery "Sales" | % { $_.Id }
-#$supportGroupID = Find-CsGroup -SearchQuery "Support" | % { $_.Id }
+#$salesGroupID = Find-CsGroup -SearchQuery $dialDirectoryName | % { $_.Id }
+
 #$dialScope = New-CsAutoAttendantDialScope -GroupScope -GroupIds @($salesGroupID, $supportGroupID)
 
