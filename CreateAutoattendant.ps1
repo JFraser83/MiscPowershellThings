@@ -195,14 +195,30 @@ $upnCreated = $false
 
 #Create AutoAttendant 
 
-#$timerangeMoFr = New-CsOnlineTimeRange -Start 08:30 -end 17:00
+try {
+    #Operator Information
+    $operatorID = (Get-CsOnlineUser -Identity "sip:ana.bowman@joshfraser.ca").Identity
 
-#$afterHoursSchedule = New-CsOnlineSchedule -Name "After Hours Schedule" -WeeklyRecurrentSchedule -MondayHours @($timerangeMoFr) -TuesdayHours @($timerangeMoFr) -WednesdayHours @($timerangeMoFr) -ThursdayHours @($timerangeMoFr) -FridayHours @($timerangeMoFr)  -Complement
+    $operatorEntity = New-CsAutoAttendantCallableEntity -Identity $operatorID -Type User
 
-#$openallOptions = New-CsAutoAttendantMenuOption -Action TransfercallToTarget -DtfmResponse Automatic -CallTarget (Get-CsOnlineUser $CallQueueName).Identity
 
-#New-CsAutoAttendantMenuOption -Action TransferCallToTarget -DtmfResponse Tone2 -CallTarget $openHoursMenuOption2Entity
-#$salesGroupID = Find-CsGroup -SearchQuery $dialDirectoryName | % { $_.Id }
+    $timerangeMoFr = New-CsOnlineTimeRange -Start 08:30 -end 17:00
 
-#$dialScope = New-CsAutoAttendantDialScope -GroupScope -GroupIds @($salesGroupID, $supportGroupID)
+    $afterHoursSchedule = New-CsOnlineSchedule -Name "After Hours Schedule" -WeeklyRecurrentSchedule -MondayHours @($timerangeMoFr) -TuesdayHours @($timerangeMoFr) -WednesdayHours @($timerangeMoFr) -ThursdayHours @($timerangeMoFr) -FridayHours @($timerangeMoFr)  -Complement
 
+    $openallOptions = New-CsAutoAttendantMenuOption -Action TransfercallToTarget -DtfmResponse Automatic -CallTarget $callQueueID 
+
+    $openHoursMenu = New-CsAutoAttendantMenu -Name "Open Hours Menu" -MenuOptions @($openallOptions) 
+
+
+    New-CsAutoAttendantMenuOption -Action TransferCallToTarget -DtmfResponse Tone2 -CallTarget $openHoursMenuOption2Entity
+    #$salesGroupID = Find-CsGroup -SearchQuery $dialDirectoryName | % { $_.Id }
+
+
+    $openHoursCallFlow = New-CsAutoAttendantCallFlow -Name "Open Hours Call Flow"  -Menu $openHoursMenu
+
+    $autoAttendant = New-CsAutoAttendant -Name "Test AutoAttendant" -DefaultCallFlow $openHoursCallFlow -LanguageId "en-US" -TimeZoneId "Eastern Standard Time" -Operator $operatorEntity
+}
+catch {
+    Write-Host "An error occurred: $_"
+}
